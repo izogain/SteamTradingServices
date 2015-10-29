@@ -75,12 +75,12 @@ class Exchange:
         log.debug("Connected to redis")
         pass
 
-    def _getAuth(self, steamid64):
+    def _get_auth(self, steamid64):
         return self.redis_connection.get(steamid64)
         pass
 
     def accept_trade(self, request):
-        cookies = self._getAuth(request["steamid64"])
+        cookies = self._get_auth(request["steamid64"])
 
         header = {
             "Origin": "https://steamcommunity.com",
@@ -100,7 +100,7 @@ class Exchange:
         pass
 
     def decline_trade(self, request):
-        cookies = self._getAuth(request["steamid64"])
+        cookies = self._get_auth(request["steamid64"])
 
         data = {
             "key": cookies["api_key"],
@@ -111,7 +111,7 @@ class Exchange:
         pass
 
     def create_trade(self, request):
-        cookies = self._getAuth(request["steamid64"])
+        cookies = self._get_auth(request["steamid64"])
 
         header = {
             "Origin": "https://steamcommunity.com",
