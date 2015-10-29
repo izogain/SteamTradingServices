@@ -7,6 +7,7 @@ import pika
 import redis
 import json
 import requests
+import threading
 
 log = logging.getLogger(__name__)
 debug_mode = False
@@ -56,6 +57,7 @@ class Exchange:
         self.redisdb = redisdb
         self.status = status
         self.publishresult = publishresult
+        self.lock = threading.Lock()
 
         log.info("Exchange Service is starting")
         log.debug("Connecting to rabbitmq on " + self.rmqhost)
@@ -139,34 +141,46 @@ class Exchange:
         pass
 
     def consume(self):
-        def _accept_consume(self, ch, method, properties, body):
-            msg = json.loads(body.decode("utf-8"))
-            response = self.accept_trade(msg)
+        def _thread_by_proxy(method_to_exec, request, type, method, callback):
 
+            # TODO: publish status
+
+            response = method_to_exec(request)
+
+            self.lock.acquire()
+            self.rmq_channel.basic_ack(delivery_tag=method.delivery_tag)
+            callback(response)
+            self.lock.release()
+            pass
+
+        def _accept_callback(response):
             if self.publishresult:
                 self.rmq_channel.basic_publish("tradeResults", "accept", str(response))
+            pass
 
-            ch.basic_ack(delivery_tag=method.delivery_tag)
+        def _decline_callback(response):
+            if self.publishresult:
+                self.rmq_channel.basic_publish("tradeResults", "decline", str(response))
+            pass
+
+        def _create_callback(response):
+            if self.publishresult:
+                self.rmq_channel.basic_publish("tradeResults", "create", str(response))
+            pass
+
+        def _accept_consume(self, ch, method, properties, body):
+            msg = json.loads(body.decode("utf-8"))
+            threading.Thread(target=_thread_by_proxy, args=(self.accept_trade, msg, method, _accept_callback))
             pass
 
         def _decline_consume(self, ch, method, properties, body):
             msg = json.loads(body.decode("utf-8"))
-            response = self.decline_trade(msg)
-
-            if self.publishresult:
-                self.rmq_channel.basic_publish("tradeResults", "decline", str(response))
-
-            ch.basic_ack(delivery_tag=method.delivery_tag)
+            threading.Thread(target=_thread_by_proxy, args=(self.decline_trade, msg, method, _decline_callback))
             pass
 
         def _create_consume(self, ch, method, properties, body):
             msg = json.loads(body.decode("utf-8"))
-            response = self.create_trade(msg)
-
-            if self.publishresult:
-                self.rmq_channel.basic_publish("tradeResults", "create", str(response))
-
-            ch.basic_ack(delivery_tag=method.delivery_tag)
+            threading.Thread(target=_thread_by_proxy, args=(self.create_trade, msg, method, _create_callback))
             pass
 
         log.debug("Creating exchanges")
