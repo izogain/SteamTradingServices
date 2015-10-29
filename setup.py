@@ -4,7 +4,7 @@ setup(
     name="SteamTradeServices",
     version="0.0.1",
     packages=["Exchange"],
-    license="",
+    license="GNU General Public License v3.0",
     author="GTB3NW",
     author_email="ben+steamtradepy@b3nw.me",
     description="A set of services for steam trading",
